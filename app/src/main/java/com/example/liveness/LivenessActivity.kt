@@ -15,13 +15,19 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.view.LifecycleCameraController
 import androidx.core.content.ContextCompat
+import androidx.room.Room
 import com.example.liveness.core.*
 import com.example.liveness.core.tasks.FacingDetectionTask
 import com.example.liveness.core.tasks.MouthOpenDetectionTask
 import com.example.liveness.core.tasks.ShakeDetectionTask
 import com.example.liveness.core.tasks.SmileDetectionTask
 import com.example.liveness.databinding.ActivityLivenessBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
+import java.util.*
+import kotlin.collections.ArrayList
 
 class LivenessActivity : AppCompatActivity() {
 
@@ -69,13 +75,13 @@ class LivenessActivity : AppCompatActivity() {
             override fun onTaskStarted(task: DetectionTask) {
                 when (task) {
                     is FacingDetectionTask ->
-                        binding.guide.text = "Please squarely facing the camera"
+                        binding.guide.text = "Por favor, de frente a la cámara."
                     is ShakeDetectionTask ->
-                        binding.guide.text = "Slowly shake your head left or right"
+                        binding.guide.text = "Mueva lentamente la cabeza hacia la izquierda o hacia la derecha"
                     is MouthOpenDetectionTask ->
-                        binding.guide.text = "Please open your mouth"
+                        binding.guide.text = "por favor abre tu boca"
                     is SmileDetectionTask ->
-                        binding.guide.text = "Please smile"
+                        binding.guide.text = "Por favor sonríe"
                 }
             }
 
@@ -92,7 +98,7 @@ class LivenessActivity : AppCompatActivity() {
                 if (code == LivenessDetector.ERROR_MULTI_FACES) {
                     Toast.makeText(
                         this@LivenessActivity,
-                        "Please make sure there is only one face on the screen.",
+                        "Asegúrese de que solo haya una cara en la pantalla.",
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -107,9 +113,31 @@ class LivenessActivity : AppCompatActivity() {
         ).also { it.setListener(listener) }
     }
 
-    private fun finishForResult() {
+    /*private fun finishForResult() {
         val result = ArrayList(imageFiles.takeLast(4))
         setResult(RESULT_OK, Intent().putStringArrayListExtra(ResultContract.RESULT_KEY, result))
+        finish()
+    }*/
+
+    private fun finishForResult() {
+        val checkIn = EmployeeCheckIn(
+            timestamp = Date(),
+            images = ArrayList(imageFiles.takeLast(4)),
+            employeeCode = "E12345",  // Código quemado por ahora
+            place = "Oficina",        // Lugar quemado por ahora
+            checkInStatus = "Entrada", // Estado quemado por ahora
+            name = "Juan",            // Nombre quemado por ahora
+            idNumber = "A123456"      // Número de identificación quemado por ahora
+        )
+        // Insert the check-in into the database.
+        val db = Room.databaseBuilder(
+            applicationContext,
+            AppDatabase::class.java, "database-name"
+        ).build()
+        CoroutineScope(Dispatchers.IO).launch {
+            db.checkInDao().insert(checkIn)
+        }
+        setResult(RESULT_OK, Intent().putExtra(ResultContract.RESULT_KEY, checkIn))
         finish()
     }
 
@@ -130,19 +158,19 @@ class LivenessActivity : AppCompatActivity() {
         )
     }
 
-    class ResultContract : ActivityResultContract<Any?, List<String>?>() {
+    class ResultContract : ActivityResultContract<Any?, EmployeeCheckIn?>() {
 
         companion object {
-            const val RESULT_KEY = "images"
+            const val RESULT_KEY = "check_in"
         }
 
         override fun createIntent(context: Context, input: Any?): Intent {
             return Intent(context, LivenessActivity::class.java)
         }
 
-        override fun parseResult(resultCode: Int, intent: Intent?): List<String>? {
+        override fun parseResult(resultCode: Int, intent: Intent?): EmployeeCheckIn? {
             if (resultCode == RESULT_OK && intent != null) {
-                return intent.getStringArrayListExtra(RESULT_KEY)
+                return intent.getStringArrayListExtra(RESULT_KEY) as EmployeeCheckIn?
             }
             return null
         }
