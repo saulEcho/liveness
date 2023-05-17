@@ -5,11 +5,13 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
 import androidx.room.Room
@@ -39,6 +41,7 @@ class MainActivity : AppCompatActivity() {
                 // Aqui se obtiene la imagen
                 // checkIn.images.get(0) para obtener la imagen 0
 
+                Log.d("forResult", "onCreate for result: ")
                 binding.recyclerView.adapter = ImageAdapter(checkIn.images.orEmpty())
             }
 
@@ -101,12 +104,13 @@ class MainActivity : AppCompatActivity() {
         GlobalScope.launch(Dispatchers.IO) {
             val checkIns = checkInDao.getAll()
 
-            val response = checkInApi.sendBatchCheckIn(checkIns)
+            Log.d("sendAllCheckIns", "sendAllCheckIns: ${checkIns}")
+            /*val response = checkInApi.sendBatchCheckIn(checkIns)
             if (response.isSuccessful) {
                 checkIns.forEach { checkInDao.delete(it) }
             } else {
                 // manejar error
-            }
+            }*/
         }
     }
 
@@ -141,6 +145,7 @@ class ImageAdapter(private val images: List<String>) : RecyclerView.Adapter<View
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val image = images[position]
+        Log.d("onBindViewHolder", "onBindViewHolder: ${image}")
         Glide.with(holder.itemView).load(image).into(holder.itemView as ImageView)
     }
 

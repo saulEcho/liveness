@@ -170,7 +170,7 @@ class LivenessActivity : AppCompatActivity() {
 
         override fun parseResult(resultCode: Int, intent: Intent?): EmployeeCheckIn? {
             if (resultCode == RESULT_OK && intent != null) {
-                return intent.getStringArrayListExtra(RESULT_KEY) as EmployeeCheckIn?
+                return intent.getSerializableExtra(RESULT_KEY) as EmployeeCheckIn?
             }
             return null
         }
