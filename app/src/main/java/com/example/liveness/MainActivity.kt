@@ -1,15 +1,22 @@
 package com.example.liveness
 
+import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -22,6 +29,8 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.io.File
+import java.io.FileInputStream
 
 class MainActivity : AppCompatActivity() {
 
@@ -36,19 +45,106 @@ class MainActivity : AppCompatActivity() {
         lifecycle.currentState
         setContentView(binding.root)
 
-        val livenessLauncher = registerForActivityResult(LivenessActivity.ResultContract()) { checkIn->
+        /*val livenessLauncher = registerForActivityResult(LivenessActivity2.ResultContract()) { checkIn->
             if (checkIn != null) {
-                // Aqui se obtiene la imagen
+                 Aqui se obtiene la imagen
+                 checkIn.images.get(0) para obtener la imagen 0
+
+                Log.d("forResult", "onCreate for result: ")
+                binding.recyclerView.adapter = ImageAdapter(checkIn.images.orEmpty())
+
+                checkIn.images.forEach { path ->
+                    val sourceFile = File(path)
+
+                    // Asegurarte de que la subcarpeta existe antes de intentar guardar el archivo en ella
+                    val destDir = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "${checkIn.employeeCode}")
+                    destDir.mkdirs()  // Si destDir ya existe, no se hace nada. Si no existe, se intenta crear.
+
+                    val destFile = File(destDir, "${sourceFile.name}")
+                    sourceFile.copyTo(destFile, true)
+                }
+            }
+
+        }*/
+
+        val livenessLauncher = registerForActivityResult(LivenessActivity2.ResultContract()) { checkIn->
+            if (checkIn != null) {
+                // Aquí se obtiene la imagen
                 // checkIn.images.get(0) para obtener la imagen 0
 
                 Log.d("forResult", "onCreate for result: ")
                 binding.recyclerView.adapter = ImageAdapter(checkIn.images.orEmpty())
-            }
 
+                checkIn.images.forEach { path ->
+                    val sourceFile = File(path)
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        val resolver = contentResolver
+                        val contentValues = ContentValues().apply {
+                            put(MediaStore.MediaColumns.DISPLAY_NAME, "${checkIn.employeeCode}_${sourceFile.name}")
+                            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                            put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/${checkIn.employeeCode}")
+                        }
+
+                        val imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                        resolver.openOutputStream(imageUri!!).use { outputStream ->
+                            FileInputStream(sourceFile).use { inputStream ->
+                                inputStream.copyTo(outputStream!!)
+                            }
+                        }
+                    } else {
+                        // Para versiones anteriores a Android Q
+                        val destDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), checkIn.employeeCode)
+                        if (!destDir.exists()) {
+                            destDir.mkdirs()
+                        }
+                        val destFile = File(destDir, sourceFile.name)
+                        sourceFile.copyTo(destFile, true)
+                    }
+                }
+
+            }
         }
 
-        binding.startBtn.setOnClickListener {
+        /*binding.startBtn.setOnClickListener {
             livenessLauncher.launch(null)
+        }*/
+
+        binding.startBtn.setOnClickListener {
+            val alertDialogView = LayoutInflater.from(this).inflate(R.layout.dialog_employee_data, null)
+            AlertDialog.Builder(this)
+                .setView(alertDialogView)
+                .setPositiveButton("Aceptar") { dialog, _ ->
+                    val employeeName = alertDialogView.findViewById<EditText>(R.id.employee_name).text.toString()
+                    val documentNumber = alertDialogView.findViewById<EditText>(R.id.document_number).text.toString()
+                    val employeeCode = alertDialogView.findViewById<EditText>(R.id.employee_code).text.toString()
+
+                    if (employeeName.isBlank() || documentNumber.isBlank() || employeeCode.isBlank()) {
+                        Toast.makeText(this, "Por favor, completa todos los campos", Toast.LENGTH_LONG).show()
+                        return@setPositiveButton
+                    }
+
+                    val sharedPref = this.getSharedPreferences("employeeData", Context.MODE_PRIVATE)
+                    with (sharedPref.edit()) {
+                        putString("employee_name", employeeName)
+                        putString("document_number", documentNumber)
+                        putString("employee_code", employeeCode)
+                        apply()
+                    }
+
+                    val testEmployeeName = sharedPref.getString("employee_name", null)
+                    val testDocumentNumber = sharedPref.getString("document_number", null)
+                    val testEmployeeCode = sharedPref.getString("employee_code", null)
+
+                    Log.d("MainActivity", "testEmployeeName: $testEmployeeName, testDocumentNumber: $testDocumentNumber, testEmployeeCode: $testEmployeeCode")
+
+                    livenessLauncher.launch(null)
+                    dialog.dismiss()
+                }
+                .setNegativeButton("Cancelar") { dialog, _ ->
+                    dialog.cancel()
+                }
+                .show()
         }
 
         binding.sendAllBtn.setOnClickListener {
